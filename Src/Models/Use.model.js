@@ -88,3 +88,5 @@ export const user = mongoose.model("user",userSchema)
 //     userName:this.userName,
 //     fullname:this.fullname
 //   },process.env.ACCESS_TOKEN_SECRET
+
+// https://app.eraser.io/workspace/YtPqZ1VogxGy1jzIDkzj
