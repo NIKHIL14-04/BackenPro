@@ -24,7 +24,7 @@ const userSchema = new Schema({
         lowecase:true,
         trim:true
     },
-    avatar:{
+    Avatar:{
         type:String, //cloudinary  image
         required:true,
     },
@@ -80,8 +80,8 @@ userSchema.methods.refrasheGenrateToken = async function() {
      })
    }
 
-export const user = mongoose.model("user",userSchema)
-
+ const userModel = mongoose.model("user",userSchema)
+ export default userModel;
 // await jwt.sign({
 //     _id:this._id,
 //     email:this.email,
