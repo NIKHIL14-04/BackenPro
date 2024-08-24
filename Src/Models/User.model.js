@@ -72,9 +72,6 @@ userSchema.methods.accessGenrateToken = async function() {
 userSchema.methods.refrasheGenrateToken = async function() {
     return await jwt.sign({
            _id:this._id,
-       email:this.email,
-       userName:this.userName,
-       fullname:this.fullname
      },process.env.REFRSH_TOKEN_SECRET,{
        expiresIn:process.env.REFRSH_TOKEN_EXPIRE
      })
