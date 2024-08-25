@@ -3,20 +3,21 @@ import asynchandler from "../Utils/asyncHandler.js";
 import userModel from "../Models/User.model.js";
 import FileUploadOnClodinar from "../Utils/Cloudniary.js"
 import Apiresponce from "../Utils/ApiResponcehandel.js";
+import jwt from "jsonwebtoken"
 
 
-const GenrateAccessAndRefreshToken = async(userId)=>{
+const GenrateAccessAndRefreshToken = async (userId) => {
     try {
         const user = await userModel.findById(userId)
-        const Accesstoken =  user.accessGenrateToken()
-        const Refreshtoken  = user.refrasheGenrateToken()
+        const Accesstoken = user.accessGenrateToken()
+        const Refreshtoken = user.refrasheGenrateToken()
         user.refreshToken = Refreshtoken
-        await user.save({validateBeforeSave:false})
-        return {Accesstoken,Refreshtoken}
+        await user.save({ validateBeforeSave: false })
+        return { Accesstoken, Refreshtoken }
 
     } catch (error) {
         console.log(error.message)
-        throw new ApiError(500,"something went worn while genrating access and refresh token..!")
+        throw new ApiError(500, "something went worn while genrating access and refresh token..!")
     }
 }
 
@@ -68,52 +69,192 @@ const RegisterUser = asynchandler(async (req, res) => {
 
 
 
-const LoginUser = asynchandler(async(req,res)=>{
-  const {email,password,userName} = req.body
-  if(!email || !userName){
-    throw new ApiError(400,"email and username are required  !") 
-  }
-  const user = await userModel.findOne({$or:[email,userName]})
-  if(!user){
-    throw new ApiError(400," user not found..!") 
-  }
-  const IsPasswordvalidate = await user.isPasswordCorrect(password)
-  if (!IsPasswordvalidate) {
-    throw new ApiError(400,"password is not correct..!") 
-  }
-const {Accesstoken,Refreshtoken}= await GenrateAccessAndRefreshToken(user._id)
-  const logendInUser = await userModel.findById(user._id).select("-password -refreshToken")
+const LoginUser = asynchandler(async (req, res) => {
+    const { email, password, userName } = req.body
+    if (!email) {
+        throw new ApiError(400, "email and username are required  !")
+    }
+    const user = await userModel.findOne({ email })
+    if (!user) {
+        throw new ApiError(400, " user not found..!")
+    }
+    const IsPasswordvalidate = await user.isPasswordCorrect(password)
+    if (!IsPasswordvalidate) {
+        throw new ApiError(400, "password is not correct..!")
+    }
+    const { Accesstoken, Refreshtoken } = await GenrateAccessAndRefreshToken(user._id)
+    const ac = await Accesstoken
+    const rc = await Refreshtoken
+    const logendInUser = await userModel.findById(user._id).select("-password -refreshToken")
 
-  const options ={
-    httpOnly:true,
-    secure:true
-  }
+    const options = {
+        httpOnly: true,
+        secure: true
+    }
 
-  return res.status(200)
-  .cookie("Accesstoken",Accesstoken,options)
-  .cookie("Refreshtoken",Refreshtoken,options)
-  .json(new Apiresponce(200,{logendInUser,Accesstoken,Refreshtoken},"user logoin successfully..!"))
+    return res.status(200)
+        .cookie("Accesstoken", ac, options)
+        .cookie("Refreshtoken", rc, options)
+        .json(new Apiresponce(200, { logendInUser, Accesstoken: ac, Refreshtoken: rc }, "user logoin successfully..!"))
 
 })
 
 
-const LogoutUser = asynchandler(async(req,res)=>{
-    const logout = await userModel.findByIdAndUpdate(req.user._id,{$set:{
-        refreshToken:undefined
-    }},{new:true})
-    const options ={
-        httpOnly:true,
-        secure:true
-      }  
+const LogoutUser = asynchandler(async (req, res) => {
+    try {
+        const logout = await userModel.findByIdAndUpdate(req.user._id, {
+            $set: {
+                refreshToken: undefined
+            }
+        }, { new: true })
+        const options = {
+            httpOnly: true,
+            secure: true
+        }
+        const { Accesstoken, Refreshtoken } = await GenrateAccessAndRefreshToken(req.user._id)
+        const ac = await Accesstoken
+        const rc = await Refreshtoken
+        return res.status(200)
+            .clearCookie("Accesstoken", ac, options)
+            .clearCookie("Refreshtoken", rc, options)
+            .json(
+                new Apiresponce(200, {}, "user logout")
+            )
+    } catch (error) {
+        console.log(error.message)
+    }
+})
 
-      return res.status(200)
-      .clearCookie(Accesstoken,options)
-      .clearCookie(Refreshtoken,options)
-      .json(
-        new Apiresponce(200,{},"user logout")
-      )
+const AccessRefreshToken = asynchandler(async (req, res) => {
+    const IncomeimgrefreshToken = req.cookies?.Refreshtoken || req.body.Refreshtoken
+
+    if (!IncomeimgrefreshToken) {
+        throw new ApiError(400, "Unauthrized token..!")
+    }
+    const IncodedToken = jwt.verify(IncomeimgrefreshToken, process.env.REFRSH_TOKEN_SECRET)
+    const user = await userModel.findById(IncodedToken?._id)
+    if (!user) {
+        throw new ApiError(400, "Invalid Refresh Token..!")
+    }
+
+    if (IncomeimgrefreshToken !== IncodedToken.refreshToken) {
+        throw new ApiError(400, "refresh token are not match..!")
+    }
+    const options = {
+        httpOnly: true,
+        secure: true
+    }
+    const { Accesstoken, Refreshtoken } = await GenrateAccessAndRefreshToken(user._id)
+    const ac = await Accesstoken
+    const rc = await Refreshtoken
+
+    return res.status(200)
+        .cookie("Accesstoken", ac, options)
+        .cookie("Refreshtoken", rc, options)
+        .json(
+            new Apiresponce(200, { Accesstoken: ac, Refreshtoken: rc }, "token refresh succefully..!")
+        )
+})
+
+const ChangeCurrentPassword = asynchandler(async (req, res) => {
+    const { oldPasswoed, NewPassword, ConfirmPassword } = req.body
+    if (!oldPasswoed || !NewPassword || !ConfirmPassword) {
+        throw new ApiError(400, "All filed are required...!")
+    }
+
+    if (NewPassword !== ConfirmPassword) {
+        throw new ApiError(400, "Newpassword and oldpassword not match..!")
+
+    }
+    const user = await userModel.findById(user._id)
+
+    const CheckPassword = await user.isPasswordCorrect(oldPasswoed)
+    if (!CheckPassword) {
+        throw new ApiError(400, "Invalid Password ...!")
+    }
+
+    user.password = NewPassword
+    await user.save({ validateBeforeSave: true })
+
+    return res.status(200).
+        json(
+            new Apiresponce(200, {}, "Update password successfully..!")
+        )
+
+})
+
+const GetCurrentUser = asynchandler(async (req, res) => {
+    return res.status(200).json(
+        new Apiresponce(200, { data: req.user }, "current user found successfully..!")
+    )
 })
 
 
+const UpdateAccountDetails = asynchandler(async (req, res) => {
+    const { fullname, email } = req.body
+    if (!fullname || !email) {
+        throw new ApiError(400, "All filed are required...!")
+    }
+    const user = await userModel.findByIdAndUpdate(req.user?._id, {
+        $set: {
+            fullname,
+            email: email
+        }
+    }, { new: true }).select("-password -refreshToken")
+    return res.status(200).json(
+        new Apiresponce(200, user, "update successfully..!")
+    )
 
-export { RegisterUser,LoginUser,LogoutUser }
+})
+
+
+const UpdateUserAvatar = asynchandler(async (req, res) => {
+    const { AvatarLoaclpath } = req.file?.path
+    if (!AvatarLoaclpath) {
+        throw new ApiError(400, "Avatart file are missing...!")
+    }
+    const Avatar = await FileUploadOnClodinar(AvatarLoaclpath)
+    if (!Avatar.url) {
+        throw new ApiError(400, "error while uploading vatart file!")
+    }
+    const updateAvatarFile = await userModel.findByIdAndUpdate(req.user?._id, {
+        $set: {
+            Avatar: Avatar.url
+        }
+    }, { new: true }).select("-password -refreshToken")
+    return res.status(200).json(
+        new Apiresponce(200, updateAvatarFile, "update avatar file successfully..!")
+    )
+
+})
+const UpdateUserCoverImage = asynchandler(async (req, res) => {
+    const { CoverimageLoaclpath } = req.file?.path
+    if (!CoverimageLoaclpath) {
+        throw new ApiError(400, "Covar Image file are missing...!")
+    }
+    const Covarimage = await FileUploadOnClodinar(CoverimageLoaclpath)
+    if (!Covarimage.url) {
+        throw new ApiError(400, "error while uploading Covarimage file!")
+    }
+    const updateCovarimage = await userModel.findByIdAndUpdate(req.user?._id, {
+        $set: {
+            coverImage: Covarimage.url
+        }
+    }, { new: true }).select("-password -refreshToken")
+    return res.status(200).json(
+        new Apiresponce(200, updateCovarimage, "update coverimage file successfully..!")
+    )
+
+})
+
+export {
+    RegisterUser,
+    LoginUser,
+    LogoutUser,
+    AccessRefreshToken,
+    ChangeCurrentPassword,
+    GetCurrentUser,
+    UpdateAccountDetails,
+    UpdateUserAvatar,
+    UpdateUserCoverImage
+}

@@ -6,7 +6,7 @@ import jwt from "jsonwebtoken"
 
 export const jwtVerifyUser = asynchandler(async(req,res,next)=>{
     try {
-        const token  = req.cookie?.Accesstoken || req.header(Authorization).replace("Bearer ","")
+        const token = req.cookies?.Accesstoken || req.header("Authorization")?.replace("Bearer ", "");
         if(!token){
             throw new ApiError(409,"access token not provide")
         }
@@ -17,7 +17,7 @@ export const jwtVerifyUser = asynchandler(async(req,res,next)=>{
         if (!user) {
             throw new ApiError(400,"access token invalid")
         }
-        req.user = decodeUser
+        req.user = user
         next()
     } catch (error) {
         throw new ApiError(400,error.message)
