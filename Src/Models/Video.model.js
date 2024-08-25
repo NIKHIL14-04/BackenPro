@@ -32,7 +32,7 @@ const videoSchema = new Schema(
         },
         owner :{
             type:Schema.Types.ObjectId,
-            ref:"user"
+            ref:"userModel"
         },
     },{timestamps:true})
 videoSchema.plugin(mongooseaggregatepaginate)
