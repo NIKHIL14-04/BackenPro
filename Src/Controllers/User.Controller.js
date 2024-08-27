@@ -247,6 +247,69 @@ const UpdateUserCoverImage = asynchandler(async (req, res) => {
 
 })
 
+
+const GetUserChannelProfile = asynchandler(async(req,res)=>{
+    const {userName} = req.params
+    if(!userName){
+        throw new ApiError(400,"Username are missing...!")
+    }
+    const channel = await userModel.aggregate([{
+        $match:{
+            userName:userName?.toLowerCase()
+        }
+    },{
+        $lookup:{
+            from:"subscriptionModel",
+            foreignField:"channel",
+            localField:"_id",
+            as:"subscriber"
+        }
+    },
+    {
+     $lookup:{
+            from:"subscriptionModel",
+            foreignField:"subscriber",
+            localField:"_id",
+            as:"subscribedTo"
+        }
+    },
+    {
+        $addFields:{
+            SubscribersCount:{
+                $size:"$subscriber"
+            },
+            SubscribedToCount:{
+                $size:"$subscribedTo"
+            },
+            isSubscribed :{
+                $cond:{
+                    if:{$in:[req.user?._id ,"$subscriber.subscriber"]},then:true,else:false
+                }
+            }
+        }
+    },{
+        $project:{
+            SubscribersCount:1,
+            SubscribedToCount:1,
+            userName:1,
+            coverImage:1,
+            Avatar:1,
+            fullname:1,
+            email:1
+        }
+    }
+])
+if(!channel){
+    throw new ApiError(400,"User !")
+  
+}
+return res.status(200).json(
+    new Apiresponce(200,channel[0],"all data found successfully..!")
+)
+})
+
+
+
 export {
     RegisterUser,
     LoginUser,
@@ -256,5 +319,6 @@ export {
     GetCurrentUser,
     UpdateAccountDetails,
     UpdateUserAvatar,
-    UpdateUserCoverImage
+    UpdateUserCoverImage,
+    GetUserChannelProfile
 }
