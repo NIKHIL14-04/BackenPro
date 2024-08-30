@@ -4,6 +4,7 @@ import userModel from "../Models/User.model.js";
 import FileUploadOnClodinar from "../Utils/Cloudniary.js"
 import Apiresponce from "../Utils/ApiResponcehandel.js";
 import jwt from "jsonwebtoken"
+import mongoose from "mongoose";
 
 
 const GenrateAccessAndRefreshToken = async (userId) => {
@@ -308,7 +309,56 @@ return res.status(200).json(
 )
 })
 
+const GetuserWatchhistory =asynchandler(async(req,res)=>{
+  const user = await userModel.aggregate([{
+    $match:{
+        _id:new mongoose.Types.ObjectId(req.user?._id)
+    }
+  },{
+    $lookup:{
+        from:"videos",
+        foreignField:"_id",
+        localField:"watchHistory",
+        as:"watchHistory",
+        pipeline:[
+            {
+            $lookup:{
+                from:"users",
+                localField:"owner",
+                foreignField:"_id",
+                as:"owner",
+                pipeline:[
+                    {
+                    $project:{
+                        fullname:1,
+                        userName:1,
+                        Avatar:1,
+                        coverImage:1
+                    }
+                },{
+                $addFields:{
+                    owner:{
+                        $first:"$owner"
+                    }
+                }
+            }
+            ]
+            }
+    }]
+    }
+  }
+])
 
+return res.status(200).json(
+    new Apiresponce(
+        200,
+        user[0].watchHistory,
+        "get data successfully.!"
+    )
+)
+
+
+})
 
 export {
     RegisterUser,
@@ -320,5 +370,6 @@ export {
     UpdateAccountDetails,
     UpdateUserAvatar,
     UpdateUserCoverImage,
-    GetUserChannelProfile
+    GetUserChannelProfile,
+    GetuserWatchhistory
 }
