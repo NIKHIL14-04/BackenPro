@@ -32,7 +32,7 @@ const RegisterUser = asynchandler(async (req, res) => {
         $or: [{ userName }, { email }]
     })
     if (UserExisted) {
-        throw new ApiError(409, "username and email alredy existed")
+     throw new ApiError(409, "username and email alredy existed")
     }
     let AvatarImageLocal;
     if (req.files && Array.isArray(req.files.Avatar) && req.files.Avatar.length > 0) {
